@@ -56,6 +56,3 @@ def bad_request(error):
   
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
-
-# TASK 3 : AUTHENTICATION
-    
