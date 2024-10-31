@@ -14,8 +14,6 @@ def home():
   cursor = mysql.connections
   return "Hello World"
 
-# TASK 2 : ERROR HANDLING
-
 def error_response(status_code, message):
    response = jsonify({
       "error": {
@@ -41,7 +39,6 @@ def create_table():
   cursor.execute("'INSERT INTO midterm_database VALUES(emily_davis, ed12345)")
   cursor.execute("'INSERT INTO midterm_database VALUES(frank_wilson, fw12345)")
   cursor.execute("'INSERT INTO midterm_database VALUES(grace_martinez, gm12345)")
-  mysql.connection.commit()
 
 # ERROR 400 - Bad Request
 @app.errorhandler(400)
@@ -77,6 +74,8 @@ def bad_request(error):
 @app.errorhandler(429)
 def bad_request(error):
    return error_response(429, "Too Many Requests")
+
+
   
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

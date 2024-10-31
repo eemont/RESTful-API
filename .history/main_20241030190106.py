@@ -14,8 +14,6 @@ def home():
   cursor = mysql.connections
   return "Hello World"
 
-# TASK 2 : ERROR HANDLING
-
 def error_response(status_code, message):
    response = jsonify({
       "error": {
@@ -77,6 +75,8 @@ def bad_request(error):
 @app.errorhandler(429)
 def bad_request(error):
    return error_response(429, "Too Many Requests")
+
+
   
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
