@@ -10,3 +10,5 @@
 
 ## Introduction :
 In this mid-project, we built a RESTful API using Flask, implementing comprehensive error handling, user authentication, and file handling capabilities. The API includes two route types: public routes, accessible without authentication, and protected admin routes that require secure authentication. Through this project, we developed a robust API structure that effectively manages errors, ensures secure user access, and supports file uploads.
+
+## Installation :
