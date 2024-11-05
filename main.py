@@ -76,28 +76,28 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
-        
+
         if not token:
             return error_response(401, 'Token is missing')
-        
+
         try:
             token = token.split(' ')[1]  # Remove 'Bearer ' prefix
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            
+
             # Get current user from database
             cur = mysql.connection.cursor()
             cur.execute("SELECT * FROM midterm_database WHERE username = %s", (data['username'],))
             current_user = cur.fetchone()
             cur.close()
-            
+
             if not current_user:
                 return error_response(401, 'Invalid token')
-                
+
         except Exception as e:
             return error_response(401, 'Invalid token')
-            
+
         return f(current_user, *args, **kwargs)
-    
+
     return decorated
 
 # Database setup route
@@ -111,7 +111,7 @@ def create_table():
     """
     try:
         cursor = mysql.connection.cursor()
-        
+
         # Create table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS midterm_database(
@@ -120,7 +120,7 @@ def create_table():
                 password VARCHAR(255)
             )
         """)
-        
+
         # Insert sample users
         sample_users = [
             ('emmanuel_montoya', 'em12345'),
@@ -134,22 +134,33 @@ def create_table():
             ('frank_wilson', 'fw12345'),
             ('grace_martinez', 'gm12345')
         ]
-        
+
         cursor.execute("SELECT COUNT(*) FROM midterm_database")
         count = cursor.fetchone()[0]
-        
+
         if count == 0:
             cursor.executemany(
                 "INSERT INTO midterm_database (username, password) VALUES (%s, %s)",
                 sample_users
             )
-            
+
         mysql.connection.commit()
         cursor.close()
         return jsonify({"message": "Table created and populated successfully"}), 200
-        
+
     except Exception as e:
         return error_response(500, str(e))
+
+@app.route('/show_table', methods=['POST', 'GET'])
+def show_table():
+    cursor = mysql.connection.cursor()
+    cursor.execute('''SELECT * FROM midterm_database''')
+    row_headers=[x[0] for x in cursor.description] #this will extract row headers
+    rv = cursor.fetchall()
+    json_data=[]
+    for result in rv:
+        json_data.append(dict(zip(row_headers,result)))
+    return jsonify(json_data)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -161,24 +172,24 @@ def login():
         401: Invalid credentials
     """
     auth = request.authorization
-    
+
     if not auth or not auth.username or not auth.password:
         return error_response(401, 'Login required')
-        
+
     cursor = mysql.connection.cursor()
     cursor.execute("SELECT * FROM midterm_database WHERE username = %s AND password = %s",
                   (auth.username, auth.password))
     user = cursor.fetchone()
     cursor.close()
-    
+
     if not user:
         return error_response(401, 'Invalid credentials')
-        
+
     token = jwt.encode({
         'username': auth.username,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     }, app.config['SECRET_KEY'])
-    
+
     return jsonify({'token': token})
 
 # =============================================
@@ -193,7 +204,7 @@ def upload_file(current_user):
     - Checks file type against allowed extensions
     - Enforces maximum file size (16MB)
     - Stores files securely in uploads directory
-    
+
     Returns:
         200: File uploaded successfully
         400: Invalid file or file type
@@ -201,12 +212,12 @@ def upload_file(current_user):
     """
     if 'file' not in request.files:
         return error_response(400, 'No file part')
-        
+
     file = request.files['file']
-    
+
     if file.filename == '':
         return error_response(400, 'No selected file')
-        
+
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
@@ -214,7 +225,7 @@ def upload_file(current_user):
             "message": "File uploaded successfully",
             "filename": filename
         })
-    
+
     return error_response(400, 'File type not allowed')
 
 # =============================================
@@ -225,7 +236,7 @@ def get_public_items():
     """
     Public endpoint that doesn't require authentication
     Returns a list of public items available in the system
-    
+
     Returns:
         200: List of public items
     """
@@ -244,7 +255,7 @@ def get_profile(current_user):
     """
     Protected route that returns the current user's profile
     Requires valid JWT token in Authorization header
-    
+
     Returns:
         200: User profile information
         401: Invalid or missing token
@@ -275,18 +286,18 @@ def create_user(current_user):
     """
     try:
         data = request.get_json()
-        
+
         if not data or 'username' not in data or 'password' not in data:
             return error_response(400, 'Username and password are required')
-            
+
         cursor = mysql.connection.cursor()
-        
+
         # Check if username already exists
         cursor.execute("SELECT * FROM midterm_database WHERE username = %s", (data['username'],))
         if cursor.fetchone():
             cursor.close()
             return error_response(409, 'Username already exists')
-            
+
         # Insert new user
         cursor.execute(
             "INSERT INTO midterm_database (username, password) VALUES (%s, %s)",
@@ -294,12 +305,12 @@ def create_user(current_user):
         )
         mysql.connection.commit()
         cursor.close()
-        
+
         return jsonify({
             "message": "User created successfully",
             "username": data['username']
         }), 201
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
@@ -308,7 +319,7 @@ def create_user(current_user):
 def get_all_users(current_user):
     """
     Retrieves all users in the system
-    
+
     Returns:
         200: List of all users
         500: Server error
@@ -318,16 +329,16 @@ def get_all_users(current_user):
         cursor.execute("SELECT id, username FROM midterm_database")
         users = cursor.fetchall()
         cursor.close()
-        
+
         user_list = []
         for user in users:
             user_list.append({
                 "id": user[0],
                 "username": user[1]
             })
-        
+
         return jsonify({"users": user_list})
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
@@ -336,7 +347,7 @@ def get_all_users(current_user):
 def get_user(current_user, user_id):
     """
     Retrieves a specific user by ID
-    
+
     Args:
         user_id: The ID of the user to retrieve
     Returns:
@@ -348,15 +359,15 @@ def get_user(current_user, user_id):
         cursor.execute("SELECT id, username FROM midterm_database WHERE id = %s", (user_id,))
         user = cursor.fetchone()
         cursor.close()
-        
+
         if not user:
             return error_response(404, 'User not found')
-            
+
         return jsonify({
             "id": user[0],
             "username": user[1]
         })
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
@@ -377,41 +388,41 @@ def update_user(current_user, user_id):
     """
     try:
         data = request.get_json()
-        
+
         if not data:
             return error_response(400, 'No data provided')
-            
+
         cursor = mysql.connection.cursor()
-        
+
         # Check if user exists
         cursor.execute("SELECT * FROM midterm_database WHERE id = %s", (user_id,))
         if not cursor.fetchone():
             cursor.close()
             return error_response(404, 'User not found')
-            
+
         # Update user information
         update_query = "UPDATE midterm_database SET "
         update_params = []
-        
+
         if 'username' in data:
             update_query += "username = %s"
             update_params.append(data['username'])
-            
+
         if 'password' in data:
             if 'username' in data:
                 update_query += ", "
             update_query += "password = %s"
             update_params.append(data['password'])
-            
+
         update_query += " WHERE id = %s"
         update_params.append(user_id)
-        
+
         cursor.execute(update_query, tuple(update_params))
         mysql.connection.commit()
         cursor.close()
-        
+
         return jsonify({"message": "User updated successfully"})
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
@@ -420,7 +431,7 @@ def update_user(current_user, user_id):
 def delete_user(current_user, user_id):
     """
     Deletes a user from the system
-    
+
     Args:
         user_id: The ID of the user to delete
     Returns:
@@ -429,20 +440,20 @@ def delete_user(current_user, user_id):
     """
     try:
         cursor = mysql.connection.cursor()
-        
+
         # Check if user exists
         cursor.execute("SELECT * FROM midterm_database WHERE id = %s", (user_id,))
         if not cursor.fetchone():
             cursor.close()
             return error_response(404, 'User not found')
-            
+
         # Delete user
         cursor.execute("DELETE FROM midterm_database WHERE id = %s", (user_id,))
         mysql.connection.commit()
         cursor.close()
-        
+
         return jsonify({"message": "User deleted successfully"})
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
@@ -453,7 +464,7 @@ def get_all_files(current_user):
     """
     Lists all files in the upload directory
     Returns file metadata including name, size, and upload date
-    
+
     Returns:
         200: List of file information
         500: Server error
@@ -469,9 +480,9 @@ def get_all_files(current_user):
                     os.path.getctime(file_path)
                 ).strftime('%Y-%m-%d %H:%M:%S')
             })
-        
+
         return jsonify({"files": files})
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
@@ -480,7 +491,7 @@ def get_all_files(current_user):
 def get_file(current_user, filename):
     """
     Downloads a specific file
-    
+
     Args:
         filename: Name of the file to download
         Returns:
@@ -501,7 +512,7 @@ def get_file(current_user, filename):
 def delete_file(current_user, filename):
     """
     Deletes a specific file from the upload directory
-    
+
     Args:
         filename: Name of the file to delete
     Returns:
@@ -512,10 +523,10 @@ def delete_file(current_user, filename):
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         if not os.path.exists(file_path):
             return error_response(404, 'File not found')
-            
+
         os.remove(file_path)
         return jsonify({"message": "File deleted successfully"})
-        
+
     except Exception as e:
         return error_response(500, str(e))
 
