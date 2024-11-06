@@ -1,0 +1,9 @@
+Flask==2.3.3
+Flask-MySQLdb==1.0.1
+PyJWT==2.8.0
+Werkzeug==2.3.7
+mysqlclient==2.1.1
+python-dotenv==1.0.0
+pytest==7.4.3
+pytest-cov==4.1.0
+PyMySQL==1.1.0
